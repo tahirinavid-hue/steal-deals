@@ -1,0 +1,43 @@
+name: Module C — Solar (Weekly)
+
+on:
+  schedule:
+    # Every Monday at 10:00 AM UTC (6 AM Eastern) — offset from EV leases
+    - cron: "0 10 * * 1"
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: Run solar module
+        env:
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ALERT_RECIPIENT: ${{ secrets.ALERT_RECIPIENT }}
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL || 'onboarding@resend.dev' }}
+          # Optional overrides:
+          SOLAR_PPW_THRESHOLD: ${{ vars.SOLAR_PPW_THRESHOLD || '2.00' }}
+          SOLAR_PPA_CEILING: ${{ vars.SOLAR_PPA_CEILING || '0.12' }}
+          SOLAR_ESCALATOR_MAX: ${{ vars.SOLAR_ESCALATOR_MAX || '2.9' }}
+        run: python modules/run_solar.py

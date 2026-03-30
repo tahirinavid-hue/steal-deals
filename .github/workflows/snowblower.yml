@@ -1,0 +1,42 @@
+name: Module A — Snowblower (Hourly)
+
+on:
+  schedule:
+    # Run every hour
+    - cron: "0 * * * *"
+  workflow_dispatch:  # Allow manual trigger for testing
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: Run snowblower module
+        env:
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
+          ALERT_RECIPIENT: ${{ secrets.ALERT_RECIPIENT }}
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL || 'onboarding@resend.dev' }}
+          # Optional overrides:
+          SNOWBLOWER_THRESHOLD: ${{ vars.SNOWBLOWER_THRESHOLD || '1600' }}
+          SNOWBLOWER_MSRP: ${{ vars.SNOWBLOWER_MSRP || '1999' }}
+          SNOWBLOWER_STEAL_PCT: ${{ vars.SNOWBLOWER_STEAL_PCT || '20' }}
+        run: python modules/run_snowblower.py
