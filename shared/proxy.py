@@ -15,6 +15,7 @@ from playwright.sync_api import sync_playwright
 
 SCRAPINGBEE_KEY = os.environ.get("SCRAPINGBEE_API_KEY", "")
 SCRAPINGBEE_URL = "https://app.scrapingbee.com/api/v1/"
+SERPAPI_KEY = os.environ.get("SERPAPI_KEY", "")
 
 # Default headers to look like a real browser
 DEFAULT_HEADERS = {
@@ -78,39 +79,34 @@ def _fetch_scrapingbee(url: str) -> str:
 
 def google_search_urls(query: str, num: int = 8) -> list[str]:
     """
-    Return a list of result URLs from a Google search using SerpAPI-style
-    scraping via ScrapingBee's Google endpoint.
-
-    Falls back to a simple DuckDuckGo HTML scrape if no API key is available.
+    Return a list of result URLs from a Google search.
+    Uses SerpApi if key is available, otherwise falls back to DuckDuckGo HTML.
     """
-    if SCRAPINGBEE_KEY:
+    if SERPAPI_KEY:
         resp = requests.get(
-            SCRAPINGBEE_URL,
+            "https://serpapi.com/search",
             params={
-                "api_key": SCRAPINGBEE_KEY,
-                "url": f"https://www.google.com/search?q={requests.utils.quote(query)}&num={num}",
-                "render_js": "false",
-                "premium_proxy": "true",
+                "q": query,
+                "num": num,
+                "api_key": SERPAPI_KEY,
+                "engine": "google",
             },
             timeout=30,
         )
         resp.raise_for_status()
-        html = resp.text
-    else:
-        html = _fetch_requests(
-            f"https://html.duckduckgo.com/html/?q={requests.utils.quote(query)}"
-        )
+        data = resp.json()
+        return [r["link"] for r in data.get("organic_results", [])[:num]]
 
+    # Fallback: DuckDuckGo HTML scrape
+    html = _fetch_requests(
+        f"https://html.duckduckgo.com/html/?q={requests.utils.quote(query)}"
+    )
     from bs4 import BeautifulSoup
-
     soup = BeautifulSoup(html, "html.parser")
     urls = []
     for a in soup.select("a[href]"):
         href = a["href"]
-        # Google wraps URLs in /url?q=... ; DuckDuckGo uses direct hrefs
-        if "/url?q=" in href:
-            href = href.split("/url?q=")[1].split("&")[0]
-        if href.startswith("http") and "google.com" not in href:
+        if href.startswith("http") and "duckduckgo.com" not in href:
             urls.append(href)
         if len(urls) >= num:
             break
