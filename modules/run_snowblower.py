@@ -30,15 +30,6 @@ SEARCH_QUERIES = [
     "EGO SNT2416 Home Depot Lowes price",
 ]
 
-# Known retailer domains we trust for structured price extraction
-RETAILER_PATTERNS = {
-    "homedepot.com": _parse_homedepot,
-    "lowes.com": _parse_lowes,
-    "acehardware.com": _parse_generic,
-    "truevalue.com": _parse_generic,
-    "walmart.com": _parse_generic,
-}
-
 MODULE = "snowblower"
 
 
@@ -162,6 +153,17 @@ def _parse_generic(html: str) -> dict | None:
     if price:
         return {"price": price, "in_stock": in_stock}
     return None
+
+
+# Known retailer domains we trust for structured price extraction
+# Defined after the parser functions to avoid NameError
+RETAILER_PATTERNS = {
+    "homedepot.com": _parse_homedepot,
+    "lowes.com": _parse_lowes,
+    "acehardware.com": _parse_generic,
+    "truevalue.com": _parse_generic,
+    "walmart.com": _parse_generic,
+}
 
 
 def _get_parser(url: str):
