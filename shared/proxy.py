@@ -54,7 +54,7 @@ def _fetch_playwright(url: str) -> str:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(extra_http_headers=DEFAULT_HEADERS)
-        page.goto(url, wait_until="networkidle", timeout=60_000)
+        page.goto(url, wait_until="domcontentloaded", timeout=30_000)
         html = page.content()
         browser.close()
     return html

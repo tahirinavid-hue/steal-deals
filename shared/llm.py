@@ -5,21 +5,21 @@ Only called from Tier 2 modules (B and C) — never from Module A.
 import os
 import json
 import re
+import time
 import google.generativeai as genai
+from google.api_core.exceptions import ResourceExhausted
 
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
 MODEL = "gemini-2.0-flash"
+MAX_RETRIES = 4
+BASE_DELAY = 15  # seconds between retries
 
 
 def extract_structured(prompt: str, page_text: str, schema_hint: str = "") -> dict:
     """
     Send page_text + prompt to Gemini and return a parsed JSON dict.
-
-    Args:
-        prompt:      Task instruction (what to extract).
-        page_text:   Raw scraped page text (NOT full HTML — strip tags first).
-        schema_hint: Optional JSON schema string to guide output format.
+    Retries up to MAX_RETRIES times on rate-limit (429) errors.
     """
     full_prompt = f"""{prompt}
 
@@ -30,7 +30,19 @@ def extract_structured(prompt: str, page_text: str, schema_hint: str = "") -> di
 --- PAGE TEXT END ---
 """
     model = genai.GenerativeModel(MODEL)
-    response = model.generate_content(full_prompt)
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = model.generate_content(full_prompt)
+            raw = response.text.strip()
+            break
+        except ResourceExhausted as e:
+            if attempt < MAX_RETRIES - 1:
+                wait = BASE_DELAY * (attempt + 1)
+                print(f"[llm] Rate limited, retrying in {wait}s (attempt {attempt + 1}/{MAX_RETRIES})")
+                time.sleep(wait)
+            else:
+                raise
     raw = response.text.strip()
 
     # Strip markdown fences if model includes them
